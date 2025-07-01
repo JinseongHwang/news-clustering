@@ -4,10 +4,11 @@
 
 ## 주요 기능
 
-- **다국어 기사 임베딩**: Sentence Transformers를 사용한 다국어 텍스트 벡터화
+- **한국어 최적화 임베딩**: BGE-m3-ko 모델을 사용한 1024차원 한국어 텍스트 벡터화
 - **자동 군집화**: HDBSCAN 알고리즘으로 최적의 클러스터 수 자동 결정
 - **대표 기사 선정**: 각 클러스터 중심에 가장 가까운 기사 선택
 - **AI 요약 생성**: OpenAI GPT를 이용한 클러스터별 제목 및 요약 자동 생성
+- **JSON 파일 처리**: API 요청 대신 JSON 파일에서 뉴스 데이터를 읽어 처리 가능
 
 ## 시스템 요구사항
 
@@ -46,7 +47,9 @@ cp .env.example .env
 # OPENAI_API_KEY=your_actual_api_key_here
 ```
 
-## 서버 실행
+## 사용 방법
+
+### 1. API 서버 실행
 
 ```bash
 # 개발 서버 실행 (자동 리로드 활성화)
@@ -57,6 +60,34 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 서버는 기본적으로 `http://localhost:8000`에서 실행됩니다.
+
+### 2. JSON 파일에서 직접 처리
+
+```bash
+# 기본 사용법
+python process_json.py input_news.json
+
+# 결과를 파일로 저장
+python process_json.py input_news.json -o output_clusters.json
+
+# 결과를 파일로 저장하고 콘솔에도 출력
+python process_json.py input_news.json -o output_clusters.json -s
+```
+
+#### JSON 입력 파일 형식
+
+```json
+[
+  {
+    "id": "news_001",
+    "content": "뉴스 기사 내용..."
+  },
+  {
+    "id": "news_002", 
+    "content": "다른 뉴스 기사 내용..."
+  }
+]
+```
 
 ## API 사용법
 
@@ -123,7 +154,7 @@ news-clustering/
 │   │   └── article.py       # Pydantic 모델 정의
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── embedding.py     # 텍스트 임베딩 서비스
+│   │   ├── embedding.py     # BGE-m3-ko 임베딩 서비스
 │   │   ├── clustering.py    # HDBSCAN 군집화 서비스
 │   │   ├── summarization.py # GPT 요약 생성 서비스
 │   │   └── news_clustering.py # 통합 뉴스 클러스터링 서비스
@@ -132,6 +163,8 @@ news-clustering/
 ├── tests/
 │   ├── test_api.py          # API 엔드포인트 테스트
 │   └── test_clustering.py   # 클러스터링 로직 테스트
+├── process_json.py          # JSON 파일 처리 스크립트
+├── example_news.json        # 샘플 뉴스 데이터
 ├── requirements.txt         # Python 의존성
 ├── run_server.py           # 서버 실행 스크립트
 ├── .env.example            # 환경변수 예시
@@ -157,17 +190,36 @@ pytest -v tests/
 pytest --cov=app tests/
 ```
 
+## 기술적 세부사항
+
+### 임베딩 모델
+- **모델**: `dragonkue/BGE-m3-ko` (한국어 최적화)
+- **차원**: 1024차원 벡터
+- **특징**: 한국어 문서에 대한 뛰어난 의미 파악 능력
+
+### 클러스터링 알고리즘
+- **알고리즘**: HDBSCAN (Hierarchical Density-Based Spatial Clustering)
+- **파라미터**:
+  - `min_cluster_size`: 2 (최소 클러스터 크기)
+  - `min_samples`: 1 (코어 포인트가 되기 위한 최소 샘플 수)
+  - `metric`: cosine (코사인 유사도 사용)
+  - `cluster_selection_epsilon`: 0.15 (균형잡힌 클러스터링)
+  - `alpha`: 1.2 (보수적인 클러스터링)
+- **특징**: 노이즈로 분류된 기사도 개별 클러스터로 처리
+
 ## 성능 최적화
 
 - **임베딩 캐싱**: 동일한 기사에 대한 반복적인 임베딩 계산 방지 (향후 구현 예정)
 - **배치 처리**: 대량의 기사를 효율적으로 처리
 - **GPU 지원**: CUDA가 있는 경우 자동으로 GPU 사용
+- **벡터 정규화**: 코사인 유사도 계산을 위한 L2 정규화 적용
 
 ## 제한사항
 
 - 한 번에 최대 1,000개의 기사 처리 권장
 - 각 기사는 최소 50자 이상이어야 정확한 클러스터링 가능
 - OpenAI API 호출 비용 발생 (클러스터당 1회)
+- BGE-m3-ko 모델 첫 실행 시 다운로드 시간 소요 (약 2GB)
 
 ## 문제 해결
 
@@ -176,6 +228,8 @@ pytest --cov=app tests/
 1. **ImportError**: 가상환경이 활성화되어 있는지 확인
 2. **OpenAI API 오류**: `.env` 파일의 API 키가 올바른지 확인
 3. **메모리 부족**: 처리할 기사 수를 줄이거나 시스템 메모리 증설
+4. **모델 다운로드 타임아웃**: BGE-m3-ko 모델 첫 다운로드 시 시간이 오래 걸릴 수 있음
+5. **huggingface-hub 오류**: `pip install --upgrade sentence-transformers huggingface-hub` 실행
 
 ### 로그 확인
 
