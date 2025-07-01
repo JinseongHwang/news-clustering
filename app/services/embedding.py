@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    def __init__(self, model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
+    def __init__(self, model_name: str = "dragonkue/BGE-m3-ko"):
         self.model_name = model_name
         self.model = None
         
